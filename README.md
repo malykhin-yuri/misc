@@ -12,6 +12,7 @@ Install python 3.8 on Ubuntu 16.04:
 
 - setup virtual env:
   * python3.8 -m venv venv3.8
+  * source venv3.8/bin/activate
   * pip install numpy scipy ipython
   * pip install nbformat
   * ipython --TerminalInteractiveShell.editing_mode=vi
