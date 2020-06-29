@@ -1,7 +1,8 @@
-Install python:
+Install python 3.8 on Ubuntu 16.04:
+
 - build pre-requisites:
-$ sudo apt-get build-dep python3.5
-$ sudo apt-get install uuid-dev 
+  * sudo apt-get build-dep python3.5
+  * sudo apt-get install uuid-dev 
 
 - get source
 - build python from source:
