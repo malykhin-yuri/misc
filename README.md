@@ -1,3 +1,5 @@
+See also: https://github.com/python/cpython/blob/3.9/README.rst
+
 Install python 3.8 on Ubuntu 16.04:
 
 - build pre-requisites:
