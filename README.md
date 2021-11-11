@@ -18,3 +18,6 @@ Install python 3.8 on Ubuntu 16.04:
   * pip install numpy scipy ipython
   * pip install nbformat
   * ipython --TerminalInteractiveShell.editing_mode=vi
+
+
+Vim + universal-ctags https://github.com/universal-ctags/ctags
