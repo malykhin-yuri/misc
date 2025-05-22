@@ -33,7 +33,7 @@ class TuringMachine[ST, SYM]:
         if head < 0:
             raise ValueError("Head must be non-negative!")
         if head >= len(tape):
-            self.tape.extend([empty_symbol] * (head - len(tape) + 1))
+            self.tape.extend([self.empty_symbol] * (head - len(tape) + 1))
         self.head = head
 
         step = 0

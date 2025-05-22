@@ -1,26 +1,34 @@
 import itertools
 from collections.abc import Sequence
-from typing import Literal
+from typing import Literal, Any
+from enum import Enum
 
 from turing_machine import TuringMachine
 
 
+class BinStateGroup(Enum):
+    REGULAR = 1
+    READ = 2
+    WRITE = 3
+    MOVE = 4
+
+type DeltaType = Literal[-1, 0, 1]
 type Bit = Literal[0, 1]
+type BinState[ST_] = tuple[BinStateGroup, ST_, Any]
 
 
 class BinEncoder[ST, SYM]:
-    def __init__(self, machine: TuringMachine[ST, SYM]):
 
+    def __init__(self, machine: TuringMachine[ST, SYM]) -> None:
         states = [machine.init_state]
         alphabet = [machine.empty_symbol]  # important: empty_symbol has index 0 => new empty 0 is ok
-        seen_states = set()
-        seen_alphabet = set()
+        seen_states = set(states)
+        seen_alphabet = set(alphabet)
         for (state, symbol), (new_state, new_symbol, _) in machine.rules.items():
             for st in state, new_state:
                 if st not in seen_states:
                     states.append(st)
                     seen_states.add(st)
-
             for symb in symbol, new_symbol:
                 if symb not in seen_alphabet:
                     alphabet.append(symb)
@@ -29,21 +37,18 @@ class BinEncoder[ST, SYM]:
         self.orig_states = states
         self.alphabet = alphabet
 
-        self.symbol_to_int = {symbol: index for index, symbol in enumerate(self.alphabet)}
+        self.symbol_index = {symbol: index for index, symbol in enumerate(self.alphabet)}
         self.block_size = (len(self.alphabet) - 1).bit_length()
         self.formatter = '{0:0' + str(self.block_size) + 'b}'
 
         self.orig_machine = machine
 
-    def _encode_symbol(self, symbol: SYM) -> tuple[Bit, ...]:
-        index = self.symbol_to_int[symbol]
-        return list(self.formatter.format(index))
-
-    def _get_index(self, block: Sequence[Bit]) -> int:
-        return int(''.join(map(str, block)), base=2)
+    def _encode_symbol(self, symbol: SYM) -> list[Bit]:
+        index = self.symbol_index[symbol]
+        return list(map(int, self.formatter.format(index)))  # type: ignore
 
     def _decode_symbol(self, block: Sequence[Bit]) -> SYM:
-        index = self._get_index(block)
+        index = int(''.join(map(str, block)), base=2)
         return self.alphabet[index]
 
     def encode_input(self, tape: list[SYM]) -> list[Bit]:
@@ -59,70 +64,74 @@ class BinEncoder[ST, SYM]:
             start += b
         return result
 
-    def encode_machine(self) -> TuringMachine[ST, Bit]:
+    def encode_machine(self) -> TuringMachine[BinState[ST], Bit]:
+        G = BinStateGroup
         B = self.block_size
-        init_state = ('regular', self.orig_machine.init_state)
+        bits: list[Bit] = [0, 1]
+        deltas: list[DeltaType] = [-1, 0, 1]
 
-        new_rules = {}
-        # we have to store symbols in our states
+        init_state: BinState[ST] = (G.REGULAR, self.orig_machine.init_state, None)
+        new_rules: dict[tuple[BinState[ST], Bit], tuple[BinState[ST], Bit, DeltaType]] = {}
 
+        def switch_internal_state(state1: BinState[ST], state2: BinState[ST], delta: DeltaType = 0) -> None:
+            for bit in bits:
+                new_rules[state1, bit] = (state2, bit, delta)
+
+        # start
         for orig_state in self.orig_states:
-            # assume: orig machine in state = orig_state
-            regular_state = ('regular', orig_state)  # head is on the start of some block
+            regular_state = (G.REGULAR, orig_state, None)  # head is on the start of some block
+            read_start_state = (G.READ, orig_state, ())  # () = data already read
+            switch_internal_state(regular_state, read_start_state)
 
-            read_start_state = ('read', orig_state, (0,) * B, 0)
+        # read + change state + write
+        seen_move = set()
+        for (orig_state, orig_symbol), (new_orig_state, new_orig_symbol, orig_delta) in self.orig_machine.rules.items():
+            bin_symbol = tuple(self._encode_symbol(orig_symbol))
+            new_bin_symbol = tuple(self._encode_symbol(new_orig_symbol))
+            delta: DeltaType
+            # reading symbol orig_symbol
+            for index in range(B):
+                read_curr_state = (G.READ, orig_state, bin_symbol[:index])
+                read_next_state = (G.READ, orig_state, bin_symbol[:(index+1)])
+                delta = +1 if index < B-1 else 0
+                bit = bin_symbol[index]
+                new_rules[read_curr_state, bit] = (read_next_state, bit, delta)  # here we "read"
 
-            for bit in [0, 1]:
-                new_rules[regular_state, bit] = (read_start_state, bit, 0)
+            read_finish_state = (G.READ, orig_state, bin_symbol)  # head is on the end of the block
+            to_write = new_bin_symbol
+            to_move = orig_delta * B
 
-            possible_data = list(itertools.product([0, 1], repeat=B))
+            # we should remember delta in write state to disambiguate states
+            write_start_state = (G.WRITE, new_orig_state, (to_write, to_move))
+            switch_internal_state(read_finish_state, write_start_state)  # here we "change state"
 
-            for index in range(B):  # this causes head move to position B and may create new empty symbols on the tape :(
-                for data in possible_data:
-                    read_curr_state = ('read', orig_state, data, index)
-                    for bit in [0, 1]:
-                        data_list = list(data)
-                        data_list[index] = bit
-                        read_next_state = ('read', orig_state, tuple(data_list), index + 1)  # here we "read"
-                        new_rules[read_curr_state, bit] = (read_next_state, bit, +1)
+            while len(to_write) > 0:
+                write_curr_state = (G.WRITE, new_orig_state, (to_write, to_move))
+                next_to_write = to_write[:-1]
+                write_next_state = (G.WRITE, new_orig_state, (next_to_write, to_move))
+                delta = -1 if len(to_write) > 1 else 0
+                for bit in bits:
+                    new_rules[write_curr_state, bit] = (write_next_state, to_write[-1], delta)  # here we "write" (backwards)
+                to_write = next_to_write
 
-            for data in possible_data:
-                # assume: orig_symbol = current block = data
-                # note that orig_state + orig_symbol define (new_state, new_symbol, delta)
-                read_finish_state = ('read', orig_state, data, B)
+            write_finish_state = (G.WRITE, new_orig_state, ((), to_move))
+            move_start_state = (G.MOVE, new_orig_state, to_move)
+            switch_internal_state(write_finish_state, move_start_state)
+            seen_move.add((new_orig_state, to_move))
 
-                if self._get_index(data) >= len(self.alphabet):
-                    continue
+        # move
+        for orig_state, to_move in seen_move:
+            while to_move != 0:
+                delta = 1 if to_move > 0 else -1
+                move_curr_state = (G.MOVE, orig_state, to_move)
+                next_to_move = to_move - delta
+                move_next_state = (G.MOVE, orig_state, next_to_move)
+                for bit in bits:
+                    new_rules[move_curr_state, bit] = (move_next_state, bit, delta)  # here we "move"
+                to_move = next_to_move
 
-                orig_symbol = self._decode_symbol(data)
-                orig_key = orig_state, orig_symbol
-                if orig_key not in self.orig_machine.rules:
-                    continue
-
-                new_orig_state, new_orig_symbol, delta = self.orig_machine.rules[orig_key]
-
-                write_start_state = ('write', new_orig_state, data, B-1)  # here we "change state"!
-                for bit in [0, 1]:
-                    new_rules[read_finish_state, bit] = (write_start_state, bit, -1)
-
-                for index in range(B-1, 0, -1):
-                    for bit in [0, 1]:
-                        write_curr_state = ('write', new_orig_state, data, index)
-                        write_next_state = ('write', new_orig_state, data, index - 1)
-                        new_rules[write_curr_state, bit] = (write_next_state, data[index], -1)  # here we "write" (backwards)
-
-                write_finish_state = ('write', new_orig_state, data, 0)
-                move_start_state = ('move', new_orig_state, delta, 0)
-
-                for index in range(B):
-                    for bit in [0, 1]:
-                        move_curr_state = ('move', new_orig_state, delta, index)
-                        move_next_state = ('move', new_orig_state, delta, index + 1)
-                        new_rules[move_curr_state, bit] = (move_next_state, bit, delta)  # here we "move"
-
-                move_finish_state = ('move', new_orig_state, delta, B)
-                for bit in [0, 1]:
-                    new_regular_state = ('regular', new_orig_state)
-                    new_rules[move_finish_state, bit] = (new_regular_state, bit, 0)
+            move_finish_state = (G.MOVE, orig_state, 0)
+            new_regular_state = (G.REGULAR, orig_state, None)
+            switch_internal_state(move_finish_state, new_regular_state)
 
         return TuringMachine(rules=new_rules, init_state=init_state, empty_symbol=0)

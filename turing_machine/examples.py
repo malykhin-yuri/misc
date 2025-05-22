@@ -4,6 +4,21 @@ from turing_machine import TuringMachine
 from patches import flatten_rules, patch_rules
 
 
+def get_simple_machine():
+    INIT = 'INIT'
+    WORK = 'WORK'
+    rules = {
+        INIT: {
+            '_': (WORK, 'a', +1),
+        },
+        WORK: {
+            'a': (WORK, 'b', +1),
+            '_': (WORK, 'a', -1),
+        },
+    }
+    return TuringMachine(rules=flatten_rules(rules), init_state=INIT, empty_symbol='_')
+
+
 def get_add_machine():
     type State = str
     rules = defaultdict(dict)
