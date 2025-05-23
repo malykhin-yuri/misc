@@ -41,19 +41,25 @@ class TuringMachine[ST, SYM]:
             step += 1
             if (max_steps is not None) and (step > max_steps):
                 break
+            logging.debug('=======')
+            logging.debug('step: %d', step)
             self._next()
 
         # maybe cleanup trailing empty symbols
         return self.tape
 
     def _next(self) -> None:
-        logging.debug('state: %s, tape: %s, head: %s', self.state, self.tape, self.head)
         key = (self.state, self.tape[self.head])
+        logging.debug('state: %s | @[%d] => %s', key[0], self.head, key[1])
+        logging.debug('tape: %s', self.tape)
+
         if key not in self.rules:
             self.halt = True
+            logging.debug('halt: key not found in rules: %s', key)
             return
 
         new_state, new_symbol, delta = self.rules[key]
+        logging.debug('rule -> %s | %s | %d', new_state, new_symbol, delta)
         self.tape[self.head] = new_symbol
         self.state = new_state
         self._move(delta)
@@ -62,6 +68,7 @@ class TuringMachine[ST, SYM]:
         new_head = self.head + delta
         if new_head < 0:
             self.halt = True
+            logging.debug('halt: out of tape')
             return
         if new_head == len(self.tape):
             self.tape.append(self.empty_symbol)

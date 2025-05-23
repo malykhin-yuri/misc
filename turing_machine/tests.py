@@ -1,12 +1,17 @@
+from collections import Counter
 from typing import Any
 import logging
 import pprint
 import string
 
 from turing_machine import TuringMachine
+import multitape
 from patches import flatten_rules, patch_rules
 import examples
 from binarize import BinEncoder
+
+
+# TODO: add tests with symbols not in rules?
 
 
 def test_simple():
@@ -54,14 +59,7 @@ def test_bin_add():
 
 def test_multitape():
     machine = examples.get_multitape_palyndrome_machine(base_alphabet=list(string.ascii_letters), start_symbol='>')
-    expected = [
-        ('abba', True),
-        ('abbc', False),
-        ('', True),
-        ('dadda', False),
-        ('daddad', True),
-        ('VV', True)
-    ]
+    expected = [('abba', True), ('abbc', False), ('', True), ('dadda', False), ('daddad', True), ('VV', True)]
     for data, is_palyndrome in expected:
         tape = ['>'] + list(data)
         output_tapes = machine.run(tapes=[tape, [], []])
@@ -69,9 +67,36 @@ def test_multitape():
         assert is_palyndrome == result
 
 
+def test_multitape_emulator():
+    machine = examples.get_multitape_palyndrome_machine(base_alphabet=list('abcdefghijk'), start_symbol='*')
+    print('rules:', len(machine.rules))
+    print('states:', len(set(k[0] for k in machine.rules.keys())))
+    emulator = multitape.MultitapeEmulator(machine)
+
+    print('emulator rules:', len(emulator.machine.rules))
+    print('emulator states:', len(set(k[0] for k in emulator.machine.rules.keys())))
+
+    cc = Counter()
+    for (state, _), _ in emulator.machine.rules.items():
+        cc[state[0]] += 1
+    print(cc.most_common(5))
+
+    expected = [('abba', True), ('abbc', False), ('', True), ('dadda', False), ('daddad', True)]
+    for data, is_palyndrome in expected:
+        input_tape = ['*'] + list(data)
+        tapes=[input_tape, [], []]
+        tm_tape = emulator.encode_tapes(tapes)
+        tm_output = emulator.machine.run(tape=tm_tape)
+        output_tapes = emulator.decode_tape(tm_output)
+        result = bool(int(output_tapes[-1][0]))
+        assert is_palyndrome == result
+
+
 if __name__ == "__main__":
+    #logging.basicConfig(level=logging.DEBUG)
     test_simple()
     test_add()
     test_add()
     test_bin_add()
     test_multitape()
+    test_multitape_emulator()
