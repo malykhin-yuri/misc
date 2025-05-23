@@ -1,15 +1,16 @@
 from typing import Any
 import logging
 import pprint
+import string
 
 from turing_machine import TuringMachine
 from patches import flatten_rules, patch_rules
-from examples import get_simple_machine, get_add_machine
+import examples
 from binarize import BinEncoder
 
 
 def test_simple():
-    machine = get_simple_machine()
+    machine = examples.get_simple_machine()
     output = machine.run(tape=[])
     encoder = BinEncoder(machine)
     bin_machine = encoder.encode_machine()
@@ -29,7 +30,7 @@ def add_parse_tape(tape):
 
 
 def test_add():
-    machine = get_add_machine()
+    machine = examples.get_add_machine()
     for x in range(5):
         for y in range(5):
             output = machine.run(tape=add_prepare_tape(x, y))
@@ -38,7 +39,7 @@ def test_add():
 
 
 def test_bin_add():
-    encoder = BinEncoder(get_add_machine())
+    encoder = BinEncoder(examples.get_add_machine())
     bin_machine = encoder.encode_machine()
 
     for x in range(5):
@@ -51,8 +52,26 @@ def test_bin_add():
             assert(result == x + y)
 
 
+def test_multitape():
+    machine = examples.get_multitape_palyndrome_machine(base_alphabet=list(string.ascii_letters), start_symbol='>')
+    expected = [
+        ('abba', True),
+        ('abbc', False),
+        ('', True),
+        ('dadda', False),
+        ('daddad', True),
+        ('VV', True)
+    ]
+    for data, is_palyndrome in expected:
+        tape = ['>'] + list(data)
+        output_tapes = machine.run(tapes=[tape, [], []])
+        result = bool(int(output_tapes[-1][0]))
+        assert is_palyndrome == result
+
+
 if __name__ == "__main__":
     test_simple()
     test_add()
     test_add()
     test_bin_add()
+    test_multitape()

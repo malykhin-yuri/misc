@@ -1,6 +1,9 @@
 from collections import defaultdict
+from collections.abc import Sequence
+from typing import Any
 
 from turing_machine import TuringMachine
+import multitape
 from patches import flatten_rules, patch_rules
 
 
@@ -86,3 +89,45 @@ def get_add_machine():
 
     final_rules = patch_rules(flatten_rules(rules))
     return TuringMachine(rules=final_rules, init_state=INIT, empty_symbol='_')
+
+
+def get_multitape_palyndrome_machine(base_alphabet: Sequence[str], start_symbol, empty_symbol='_'):
+    rules: Any = {}
+    rules['init'] = [
+        ({0: start_symbol, 1: empty_symbol}, 'copy', {1: start_symbol}, {0: +1, 1: +1}),
+    ]
+    rules['copy'] = [
+        ({0: empty_symbol, 1: empty_symbol}, 'left', {}, {0: -1}),
+    ]
+    for s in base_alphabet:
+        rule = ({0: s, 1: empty_symbol}, 'copy', {1: s}, {0: +1, 1: +1})
+        rules['copy'].append(rule)
+
+    rules['left'] = [
+        ({0: start_symbol, 1: empty_symbol}, 'test', {}, {0: +1, 1: -1}),
+    ]
+    for s in base_alphabet:
+        rule = ({0: s, 1: empty_symbol}, 'left', {}, {0: -1})
+        rules['left'].append(rule)
+
+    rules['test'] = [
+        ({0: empty_symbol, 1: start_symbol}, 'stop', {2: '1'}, {}),
+    ]
+    for s0 in base_alphabet:
+        for s1 in base_alphabet:
+            read = {0: s0, 1: s1}
+            if s0 == s1:
+                rule = (read, 'test', {}, {0: +1, 1: -1})
+            else:
+                rule = (read, 'stop', {2: '0'}, {})
+            rules['test'].append(rule)
+
+    # we try to specify read data to reduce number of states
+    for state_rules in rules.values():
+        for read_data, _, _, _ in state_rules:
+            read_data[2] = empty_symbol
+
+    alphabet = [start_symbol, empty_symbol] + list(base_alphabet)
+    final_rules = multitape.patch_partial(tapes_count=3, alphabet=alphabet, partial_rules=rules)
+
+    return multitape.MultitapeTuringMachine(tapes_count=3, rules=final_rules, init_state='init', empty_symbol=empty_symbol)
