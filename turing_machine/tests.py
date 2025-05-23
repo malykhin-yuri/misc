@@ -38,18 +38,15 @@ def test_add():
 
 
 def test_bin_add():
-    machine = get_add_machine()
-    encoder = BinEncoder(machine)
+    encoder = BinEncoder(get_add_machine())
     bin_machine = encoder.encode_machine()
 
     for x in range(5):
         for y in range(5):
             tape = add_prepare_tape(x, y)
             bin_tape = encoder.encode_input(tape)
-
             bin_output = bin_machine.run(tape=bin_tape)
             output = encoder.decode_output(bin_output)
-
             result = add_parse_tape(output)
             assert(result == x + y)
 
