@@ -299,6 +299,10 @@ class MultitapeEmulator[ST, SYM]:
                 if remain_count == 0:
                     continue
 
+                # flag=1 appears only from negative deltas
+                if any(delta >= 0 and flag == 1 for flag, delta in zip(write_flags, deltas)):
+                    continue
+
                 write_storage = (new_orig_symbols, write_flags, deltas)
                 write_curr_state = (G.WRITE, new_orig_state, tape_index, write_storage)
 
