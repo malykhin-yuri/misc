@@ -29,7 +29,7 @@ class TuringMachine[ST: Hashable, SYM: Hashable]:
             (i.e. writes the same symbol as on the tape)
     """
 
-    type RulesType[ST_, SYM_] = dict[tuple[ST_, SYM_ | None], tuple[ST_, SYM_ | None, DeltaType]]
+    type RulesType[ST_, SYM_] = dict[tuple[ST_, SYM_ | None] | None, tuple[ST_, SYM_ | None, DeltaType]]
 
     def __init__(self,
             rules: RulesType[ST, SYM],  # machine halts iff rules are not defined

@@ -161,8 +161,7 @@ class EmulatorStateGroup(IntEnum):
     def __repr__(self):
         return self._name_
 
-
-type RichSt[ST_] = tuple[EmulatorStateGroup, ST_, int, Any]  # int - tape_index
+type RichSt[ST] = tuple[EmulatorStateGroup, ST, int, Any]  # int - tape_index
 
 @dataclass(frozen=True)
 class RichSym[SYM_]:
@@ -245,7 +244,7 @@ class MultitapeEmulator[ST, SYM]:
                     readany_finish_state = (G.READ_ANY, orig_state, tape_index, T)
                     read_common_finish_state = readany_finish_state
                 else:
-                    read_data: tuple[SYM | None, ...] = (None,) * T
+                    read_data: ReadStorage[SYM] = (None,) * T
                     read_start_state = (G.READ, orig_state, tape_index, read_data)
                     switch_internal_state(regular_state, read_start_state)
                     for read_mask in itertools.product([True, False], repeat=T):
@@ -273,7 +272,7 @@ class MultitapeEmulator[ST, SYM]:
                     read_common_finish_state = read_finish_state
 
                 # change state and start to write/move heads
-                write_start_storage = (tuple((s, 2) for s in new_orig_symbols), deltas)  # 2: must write; 1: must seen; 0: done
+                write_start_storage = (new_orig_symbols, (2,) * T, deltas)  # 2 - see write_flags 
                 write_start_state = (G.WRITE, new_orig_state, tape_index, write_start_storage)
                 switch_internal_state(read_common_finish_state, write_start_state)
                 seen_write_states.add(write_start_state)
@@ -293,34 +292,30 @@ class MultitapeEmulator[ST, SYM]:
 
         seen_move_states = set()
 
-        # add: write states
-        for _, new_orig_state, tape_index, write_start_storage in write_states:
-            new_orig_symbols = tuple(x[0] for x in write_start_storage[0])
-            deltas = write_start_storage[1]
-            for written_values in itertools.product([0, 1, 2], repeat=T):
-                remain_count = sum(x > 0 for x in written_values)
+        for _, new_orig_state, tape_index, (new_orig_symbols, _, deltas) in write_states:
+            for write_flags in itertools.product([0, 1, 2], repeat=T):
+                # 2: must write; 1: must seen; 0: done
+                remain_count = sum(x > 0 for x in write_flags)
                 if remain_count == 0:
                     continue
 
-                to_write = tuple((s, v) for s, v in zip(new_orig_symbols, written_values))
-                write_storage = (to_write, deltas)
+                write_storage = (new_orig_symbols, write_flags, deltas)
                 write_curr_state = (G.WRITE, new_orig_state, tape_index, write_storage)
 
-                if written_values[tape_index] == 2:
+                if write_flags[tape_index] == 2:
                     for orig_symbol in alphabet:
                         head_symbol = RS(orig_symbol, True)
                         if deltas[tape_index] == -1:
-                            new_value = 1  # should see new head to regular state work properly (all heads to the right)
+                            new_value = 1  # should see new head to maintain REGULAR state invariant
                         else:
                             new_value = 0  # all done here
-                        new_to_write = list(to_write)
-                        new_to_write[tape_index] = (to_write[tape_index][0], new_value)
+                        new_write_flags = write_flags[:tape_index] + (new_value,) + write_flags[(tape_index + 1):]
                         if remain_count == 1 and new_value == 0:
                             dw = 0
                         else:
                             dw = -1
                         new_tape_index = (tape_index + dw) % T
-                        write_next_state = (G.WRITE, new_orig_state, new_tape_index, (tuple(new_to_write), deltas))
+                        write_next_state = (G.WRITE, new_orig_state, new_tape_index, (new_orig_symbols, new_write_flags, deltas))
                         write_symbol = new_orig_symbols[tape_index]
                         write_rich_symbol = RS(write_symbol, True) if write_symbol is not None else None
                         if deltas[tape_index] != 0:
@@ -331,22 +326,22 @@ class MultitapeEmulator[ST, SYM]:
                             switch_internal_state(move_finish_state, write_next_state, dw)
                         else:
                             rules[write_curr_state, head_symbol] = (write_next_state, write_rich_symbol, dw)  # write!
-                elif written_values[tape_index] == 1:
+                elif write_flags[tape_index] == 1:
                     for s in alphabet:
                         head_symbol = RS(s, True)
                         if remain_count == 1:
                             dw = 0
                         else:
                             dw = -1
-                        new_to_write = list(to_write)
-                        new_to_write[tape_index] = (to_write[tape_index][0], 0)
-                        new_storage = (tuple(new_to_write), deltas)
-                        write_next_state = (G.WRITE, new_orig_state, (tape_index + dw) % T, new_storage)
+                        new_write_flags = write_flags[:tape_index] + (0,) + write_flags[(tape_index + 1):]
+                        write_next_state = (G.WRITE, new_orig_state, (tape_index + dw) % T, (new_orig_symbols, new_write_flags, deltas))
                         rules[write_curr_state, head_symbol] = (write_next_state, None, dw)
 
                 rules[write_curr_state, None] = ((G.WRITE, new_orig_state, (tape_index - 1) % T, write_storage), None, -1)
 
-            write_last_state = (G.WRITE, new_orig_state, tape_index, (tuple((s, 0) for s in new_orig_symbols), deltas))
+            # Currently it is guaranteed that all tape_index will be present, but it is UGLY to use it this way
+            # TODO: fix, make it more explicit
+            write_last_state = (G.WRITE, new_orig_state, tape_index, (new_orig_symbols, (0,) * T, deltas))
             regular_next_state = (G.REGULAR, new_orig_state, tape_index, None)
             switch_internal_state(write_last_state, regular_next_state)
 
@@ -369,6 +364,8 @@ class MultitapeEmulator[ST, SYM]:
             _, orig_state, tape_index, (write_storage, delta) = move_start_state
             to_move = delta * T
             to_return = -delta * T
+
+            # maybe pack (to_move, to_return, bool) into two values
 
             for s in alphabet:
                 move_start_go = (G.MOVE_DO, orig_state, tape_index, (write_storage, to_move, to_return, False))
