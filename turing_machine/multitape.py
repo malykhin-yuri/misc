@@ -291,63 +291,59 @@ class MultitapeEmulator[ST, SYM]:
             rules[state1, None] = (state2, None, delta)
 
         seen_move_states = set()
+        seen_storages = set()
 
-        for _, new_orig_state, tape_index, (new_orig_symbols, _, deltas) in write_states:
-            for write_flags in itertools.product([0, 1, 2], repeat=T):
-                # 2: must write; 1: must seen; 0: done
-                remain_count = sum(x > 0 for x in write_flags)
-                if remain_count == 0:
-                    continue
+        for _, new_orig_state, _, (new_orig_symbols, _, deltas) in write_states:
+            seen_storages.add((new_orig_state, new_orig_symbols, deltas))
 
-                # flag=1 appears only from negative deltas
-                if any(delta >= 0 and flag == 1 for flag, delta in zip(write_flags, deltas)):
-                    continue
+        for new_orig_state, new_orig_symbols, deltas in seen_storages:
+            for tape_index in range(T):  # we ensure that all states/rules are defined for all tape_index
+                for write_flags in itertools.product([0, 1, 2], repeat=T):
+                    # write_flag meaning:
+                    # 2: must write new symbol for given tape_index
+                    # 1: new symbol written but moved so we must seen new head to maintain REGULAR state invariant
+                    # 0: all done
+                    remain_count = sum(x > 0 for x in write_flags)
+                    if remain_count == 0:
+                        continue
 
-                write_storage = (new_orig_symbols, write_flags, deltas)
-                write_curr_state = (G.WRITE, new_orig_state, tape_index, write_storage)
+                    # flag=1 appears only from negative deltas
+                    if any(delta >= 0 and flag == 1 for flag, delta in zip(write_flags, deltas)):
+                        continue
 
-                if write_flags[tape_index] == 2:
-                    for orig_symbol in alphabet:
-                        head_symbol = RS(orig_symbol, True)
-                        if deltas[tape_index] == -1:
-                            new_value = 1  # should see new head to maintain REGULAR state invariant
-                        else:
-                            new_value = 0  # all done here
-                        new_write_flags = write_flags[:tape_index] + (new_value,) + write_flags[(tape_index + 1):]
-                        if remain_count == 1 and new_value == 0:
-                            dw = 0
-                        else:
-                            dw = -1
-                        new_tape_index = (tape_index + dw) % T
-                        write_next_state = (G.WRITE, new_orig_state, new_tape_index, (new_orig_symbols, new_write_flags, deltas))
-                        write_symbol = new_orig_symbols[tape_index]
-                        write_rich_symbol = RS(write_symbol, True) if write_symbol is not None else None
-                        if deltas[tape_index] != 0:
-                            move_start_state = (G.MOVE_INIT, new_orig_state, tape_index, (write_storage, deltas[tape_index]))
-                            rules[write_curr_state, head_symbol] = (move_start_state, write_rich_symbol, 0)  # write!
-                            seen_move_states.add(move_start_state)
-                            move_finish_state = (G.MOVE_DONE, new_orig_state, tape_index, write_storage)
-                            switch_internal_state(move_finish_state, write_next_state, dw)
-                        else:
-                            rules[write_curr_state, head_symbol] = (write_next_state, write_rich_symbol, dw)  # write!
-                elif write_flags[tape_index] == 1:
-                    for s in alphabet:
-                        head_symbol = RS(s, True)
-                        if remain_count == 1:
-                            dw = 0
-                        else:
-                            dw = -1
-                        new_write_flags = write_flags[:tape_index] + (0,) + write_flags[(tape_index + 1):]
-                        write_next_state = (G.WRITE, new_orig_state, (tape_index + dw) % T, (new_orig_symbols, new_write_flags, deltas))
-                        rules[write_curr_state, head_symbol] = (write_next_state, None, dw)
+                    write_storage = (new_orig_symbols, write_flags, deltas)
+                    write_curr_state = (G.WRITE, new_orig_state, tape_index, write_storage)
 
-                rules[write_curr_state, None] = ((G.WRITE, new_orig_state, (tape_index - 1) % T, write_storage), None, -1)
+                    if write_flags[tape_index] == 2:
+                        for orig_symbol in alphabet:
+                            head_symbol = RS(orig_symbol, True)
+                            new_value = 1 if deltas[tape_index] == -1 else 0
+                            new_write_flags = write_flags[:tape_index] + (new_value,) + write_flags[(tape_index + 1):]
+                            dw = 0 if remain_count == 1 and new_value == 0 else -1
+                            write_next_state = (G.WRITE, new_orig_state, (tape_index + dw) % T, (new_orig_symbols, new_write_flags, deltas))
+                            write_symbol = new_orig_symbols[tape_index]
+                            write_rich_symbol = RS(write_symbol, True) if write_symbol is not None else None
+                            if deltas[tape_index] != 0:
+                                move_start_state = (G.MOVE_INIT, new_orig_state, tape_index, (write_storage, deltas[tape_index]))
+                                rules[write_curr_state, head_symbol] = (move_start_state, write_rich_symbol, 0)  # write!
+                                seen_move_states.add(move_start_state)
+                                move_finish_state = (G.MOVE_DONE, new_orig_state, tape_index, write_storage)
+                                switch_internal_state(move_finish_state, write_next_state, dw)
+                            else:
+                                rules[write_curr_state, head_symbol] = (write_next_state, write_rich_symbol, dw)  # write!
+                    elif write_flags[tape_index] == 1:
+                        for s in alphabet:
+                            head_symbol = RS(s, True)
+                            dw = 0 if remain_count == 1 else -1
+                            new_write_flags = write_flags[:tape_index] + (0,) + write_flags[(tape_index + 1):]
+                            write_next_state = (G.WRITE, new_orig_state, (tape_index + dw) % T, (new_orig_symbols, new_write_flags, deltas))
+                            rules[write_curr_state, head_symbol] = (write_next_state, None, dw)
 
-            # Currently it is guaranteed that all tape_index will be present, but it is UGLY to use it this way
-            # TODO: fix, make it more explicit
-            write_last_state = (G.WRITE, new_orig_state, tape_index, (new_orig_symbols, (0,) * T, deltas))
-            regular_next_state = (G.REGULAR, new_orig_state, tape_index, None)
-            switch_internal_state(write_last_state, regular_next_state)
+                    rules[write_curr_state, None] = ((G.WRITE, new_orig_state, (tape_index - 1) % T, write_storage), None, -1)
+
+                write_last_state = (G.WRITE, new_orig_state, tape_index, (new_orig_symbols, (0,) * T, deltas))
+                regular_next_state = (G.REGULAR, new_orig_state, tape_index, None)
+                switch_internal_state(write_last_state, regular_next_state)
 
         return list(seen_move_states), rules
 
