@@ -113,19 +113,20 @@ def get_multitape_palyndrome_machine(base_alphabet: Sequence[str], start_symbol,
     rules['test'] = [
         ({0: empty_symbol, 1: start_symbol}, 'stop', {2: '1'}, {}),
     ]
-    for s0 in base_alphabet:
-        for s1 in base_alphabet:
-            read = {0: s0, 1: s1}
-            if s0 == s1:
-                rule = (read, 'test', {}, {0: +1, 1: -1})
-            else:
-                rule = (read, 'stop', {2: '0'}, {})
-            rules['test'].append(rule)
+
+    for s in base_alphabet:
+        read = {0: s, 1: s}
+        rule = (read, 'test', {}, {0: +1, 1: -1})
+        rules['test'].append(rule)
+
+    test_fail_rule = (None, 'stop', {2: '0'}, {})
+    rules['test'].append(test_fail_rule)
 
     # we try to specify read data to reduce number of states
     for state_rules in rules.values():
         for read_data, _, _, _ in state_rules:
-            read_data[2] = empty_symbol
+            if read_data is not None:
+                read_data[2] = empty_symbol
 
     alphabet = [start_symbol, empty_symbol] + list(base_alphabet)
     final_rules = multitape.patch_partial(tapes_count=3, alphabet=alphabet, partial_rules=rules)

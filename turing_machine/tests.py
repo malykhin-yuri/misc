@@ -36,8 +36,8 @@ def add_parse_tape(tape):
 
 def test_add():
     machine = examples.get_add_machine()
-    for x in range(5):
-        for y in range(5):
+    for x in range(30):
+        for y in range(30):
             output = machine.run(tape=add_prepare_tape(x, y))
             result = add_parse_tape(output)
             assert(result == x + y)
@@ -47,8 +47,8 @@ def test_bin_add():
     encoder = BinEncoder(examples.get_add_machine())
     bin_machine = encoder.encode_machine()
 
-    for x in range(5):
-        for y in range(5):
+    for x in range(15):
+        for y in range(15):
             tape = add_prepare_tape(x, y)
             bin_tape = encoder.encode_input(tape)
             bin_output = bin_machine.run(tape=bin_tape)
@@ -64,7 +64,7 @@ def test_multitape():
         tape = ['>'] + list(data)
         output_tapes = machine.run(tapes=[tape, [], []])
         result = bool(int(output_tapes[-1][0]))
-        assert is_palyndrome == result
+        assert is_palyndrome == result, "failed on data: {}".format(data)
 
 
 def test_multitape_emulator():
@@ -95,7 +95,6 @@ def test_multitape_emulator():
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.DEBUG)
     test_simple()
-    test_add()
     test_add()
     test_bin_add()
     test_multitape()

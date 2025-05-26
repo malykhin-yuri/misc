@@ -1,5 +1,13 @@
+"""
+This module implements almost classical Turing machine with rules:
+    (state, symbol) -> (new_state, new_symbol, delta)
+There are only two enchancements:
+1) rule (state, None) -> _ allowed that applies for any current symbol
+2) rule (state, _) -> (_, None, _) allowed that means that current symbol is not changed
+"""
+
 from copy import deepcopy
-from collections.abc import Sequence
+from collections.abc import Sequence, Hashable
 from typing import Literal
 import logging
 
@@ -7,8 +15,21 @@ import logging
 type DeltaType = Literal[-1, 0, 1]
 
 
-class TuringMachine[ST, SYM]:
-    type RulesType[ST_, SYM_] = dict[tuple[ST_, SYM_], tuple[ST_, SYM_, DeltaType]]
+class TuringMachine[ST: Hashable, SYM: Hashable]:
+    """
+    Classical Turing machine.
+    ST - States type
+    SYM - Symbols type; None has special meaning and can't be a symbol.
+
+    Rule: (state, symbol) -> (new_state, new_symbol, delta)
+        delta = 0 is allowed
+        symbol is None - means that the rule is applicable for any symbol
+            (may be overriden by concrete rule)
+        new_symbol is None - means that machine does not write
+            (i.e. writes the same symbol as on the tape)
+    """
+
+    type RulesType[ST_, SYM_] = dict[tuple[ST_, SYM_ | None], tuple[ST_, SYM_ | None, DeltaType]]
 
     def __init__(self,
             rules: RulesType[ST, SYM],  # machine halts iff rules are not defined
@@ -54,15 +75,22 @@ class TuringMachine[ST, SYM]:
         logging.debug('tape: %s', self.tape)
 
         if key not in self.rules:
-            self.halt = True
-            logging.debug('halt: key not found in rules: %s', key)
-            return
+            logging.debug('key not found in rules: %s', key)
+            key = (self.state, None)
+            if key not in self.rules:
+                logging.debug('halt: None key also not found')
+                self.halt = True
+                return
 
         new_state, new_symbol, delta = self.rules[key]
         logging.debug('rule -> %s | %s | %d', new_state, new_symbol, delta)
-        self.tape[self.head] = new_symbol
+
+        if new_symbol is not None:
+            self.tape[self.head] = new_symbol
+
         self.state = new_state
-        self._move(delta)
+        if delta != 0:
+            self._move(delta)
 
     def _move(self, delta: DeltaType) -> None:
         new_head = self.head + delta

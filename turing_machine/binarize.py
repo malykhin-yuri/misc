@@ -25,6 +25,8 @@ class BinEncoder[ST, SYM]:
         seen_states = set(states)
         seen_alphabet = set(alphabet)
         for (state, symbol), (new_state, new_symbol, _) in machine.rules.items():
+            if symbol is None:
+                raise NotImplementedError
             for st in state, new_state:
                 if st not in seen_states:
                     states.append(st)
@@ -87,7 +89,6 @@ class BinEncoder[ST, SYM]:
         seen_move = set()
         for (orig_state, orig_symbol), (new_orig_state, new_orig_symbol, orig_delta) in self.orig_machine.rules.items():
             bin_symbol = tuple(self._encode_symbol(orig_symbol))
-            new_bin_symbol = tuple(self._encode_symbol(new_orig_symbol))
             delta: DeltaType
             # reading symbol orig_symbol
             for index in range(B):
@@ -98,7 +99,7 @@ class BinEncoder[ST, SYM]:
                 new_rules[read_curr_state, bit] = (read_next_state, bit, delta)  # here we "read"
 
             read_finish_state = (G.READ, orig_state, bin_symbol)  # head is on the end of the block
-            to_write = new_bin_symbol
+            to_write = tuple(self._encode_symbol(new_orig_symbol)) if new_orig_symbol is not None else (None,) * B
             to_move = orig_delta * B
 
             # we should remember delta in write state to disambiguate states

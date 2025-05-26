@@ -31,8 +31,7 @@ def patch_rules[ST, SYM](rules: RulesType[ST, SYM]) -> RulesType[ST, SYM]:
     1) If curr_symbol is a frozenset of symbols, rules applies for each one
         (so symbols can't be fronzensets if you use this function)
     2) If there is only delta instead of triple, then next_state = next_symbol = None
-    3) If next_symbol is None, then it becomes curr_symbol
-    4) If new_state is None, then it becomes curr_state
+    3) If new_state is None, then it becomes curr_state
     """
     rules = deepcopy(rules)
 
@@ -53,8 +52,6 @@ def patch_rules[ST, SYM](rules: RulesType[ST, SYM]) -> RulesType[ST, SYM]:
             new_state, new_symbol, delta = new_data
         if new_state is None:
             new_state = state
-        if new_symbol is None:
-            new_symbol = symbol
         fixed_rules[state, symbol] = (new_state, new_symbol, delta)
     rules = fixed_rules
 
