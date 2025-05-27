@@ -68,6 +68,7 @@ def test_multitape():
 
 
 def test_multitape_emulator():
+    print('palindrome machine (multitape emulator)')
     machine = examples.get_multitape_palyndrome_machine(base_alphabet=list('abcdefghijk'), start_symbol='*')
     print('rules:', len(machine.rules))
     print('states:', len(set(k[0] for k in machine.rules.keys())))

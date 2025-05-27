@@ -13,6 +13,7 @@ import logging
 import itertools
 
 from turing_machine import TuringMachine
+from common import PrettyTape
 
 
 type DeltaType = Literal[-1, 0, 1]
@@ -116,6 +117,8 @@ class MultitapeTuringMachine[ST, SYM]:
         step = 0
         while not self.halt:
             step += 1
+            logging.debug('=======')
+            logging.debug('step: %d', step)
             if (max_steps is not None) and (step > max_steps):
                 break
             self._next()
@@ -123,11 +126,16 @@ class MultitapeTuringMachine[ST, SYM]:
         return self.tapes
 
     def _next(self) -> None:
+        logging.debug('state: %s', self.state)
+        for index, (head, tape) in enumerate(zip(self.heads, self.tapes)):
+            logging.debug('tape %d: %s', index, PrettyTape(tape, head))
         heads_data = tuple(tape[head] for head, tape in zip(self.heads, self.tapes))
         key = (self.state, heads_data)
         if key not in self.rules:
+            logging.debug('key not found in rules: %s', key)
             key = (self.state, None)
             if key not in self.rules:
+                logging.debug('halt: key for state not found')
                 self.halt = True
                 return
 

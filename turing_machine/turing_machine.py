@@ -1,7 +1,7 @@
 """
 This module implements almost classical Turing machine with rules:
-    (state, symbol) -> (new_state, new_symbol, delta)
-There are only two enchancements:
+    (state, symbol) -> (new_state, new_symbol, delta), delta in [0, -1, 1]
+There are only two "improvements":
 1) rule (state, None) -> _ allowed that applies for any current symbol
 2) rule (state, _) -> (_, None, _) allowed that means that current symbol is not changed
 """
@@ -10,6 +10,8 @@ from copy import deepcopy
 from collections.abc import Sequence, Hashable
 from typing import Literal
 import logging
+
+from common import PrettyTape
 
 
 type DeltaType = Literal[-1, 0, 1]
@@ -71,14 +73,14 @@ class TuringMachine[ST: Hashable, SYM: Hashable]:
 
     def _next(self) -> None:
         key = (self.state, self.tape[self.head])
-        logging.debug('state: %s | @[%d] => %s', key[0], self.head, key[1])
-        logging.debug('tape: %s', self.tape)
+        logging.debug('state: %s', self.state)
+        logging.debug('tape: %s', PrettyTape(self.tape, self.head))
 
         if key not in self.rules:
             logging.debug('key not found in rules: %s', key)
             key = (self.state, None)
             if key not in self.rules:
-                logging.debug('halt: None key also not found')
+                logging.debug('halt: key for state not found')
                 self.halt = True
                 return
 
