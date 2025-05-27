@@ -31,8 +31,8 @@ def get_add_machine():
         move_left: State = ('LEFT', carry)
         read_start: State = ('READ', carry, None, None)
         rules[move_left] = {
-            frozenset({'0', '1', '+', '_', '='}): -1,
             '#': [read_start, '#', 0],
+            None: [move_left, None, -1],
         }
 
         # read last digits, store them in state

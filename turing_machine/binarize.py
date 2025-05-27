@@ -7,10 +7,11 @@ from turing_machine import TuringMachine
 
 
 class BinStateGroup(Enum):
-    REGULAR = 1
-    READ = 2
-    WRITE = 3
-    MOVE = 4
+    REGULAR = 10
+    READ = 20
+    READ_ANY = 21
+    WRITE = 30
+    MOVE = 40
 
 type DeltaType = Literal[-1, 0, 1]
 type Bit = Literal[0, 1]
@@ -26,7 +27,7 @@ class BinEncoder[ST, SYM]:
         seen_alphabet = set(alphabet)
         for (state, symbol), (new_state, new_symbol, _) in machine.rules.items():
             if symbol is None:
-                raise NotImplementedError
+                continue
             for st in state, new_state:
                 if st not in seen_states:
                     states.append(st)
@@ -85,20 +86,37 @@ class BinEncoder[ST, SYM]:
             read_start_state = (G.READ, orig_state, ())  # () = data already read
             switch_internal_state(regular_state, read_start_state)
 
+        has_default_rule = set()
+        for (_, orig_symbol), _ in self.orig_machine.rules.items():
+            if orig_symbol is None:
+                has_default_rule.add(orig_state)
+
         # read + change state + write
         seen_move = set()
         for (orig_state, orig_symbol), (new_orig_state, new_orig_symbol, orig_delta) in self.orig_machine.rules.items():
-            bin_symbol = tuple(self._encode_symbol(orig_symbol))
-            delta: DeltaType
-            # reading symbol orig_symbol
-            for index in range(B):
-                read_curr_state = (G.READ, orig_state, bin_symbol[:index])
-                read_next_state = (G.READ, orig_state, bin_symbol[:(index+1)])
-                delta = +1 if index < B-1 else 0
-                bit = bin_symbol[index]
-                new_rules[read_curr_state, bit] = (read_next_state, bit, delta)  # here we "read"
+            if orig_symbol is None:
+                for count in range(B):
+                    readany_curr_state = (G.READ_ANY, orig_state, count)
+                    readany_next_state = (G.READ_ANY, orig_state, count + 1)
+                    delta = +1 if count < B-1 else 0
+                    new_rules[readany_curr_state, None] = (readany_next_state, None, delta)
+                read_finish_state = (G.READ_ANY, orig_state, B)
+            else:
+                bin_symbol = tuple(self._encode_symbol(orig_symbol))
+                delta: DeltaType
+                # reading symbol orig_symbol
+                for index in range(B):
+                    read_curr_state = (G.READ, orig_state, bin_symbol[:index])
+                    read_next_state = (G.READ, orig_state, bin_symbol[:(index+1)])
+                    delta = +1 if index < B-1 else 0
+                    bit = bin_symbol[index]
+                    new_rules[read_curr_state, bit] = (read_next_state, None, delta)  # here we "read"
+                    if has_default_rule:
+                        # fallback to default read
+                        readany_next_state = (G.READ_ANY, orig_state, index + 1)
+                        new_rules[read_curr_state, None] = (readany_next_state, None, delta)  # here we "read"
+                read_finish_state = (G.READ, orig_state, bin_symbol)  # head is on the end of the block
 
-            read_finish_state = (G.READ, orig_state, bin_symbol)  # head is on the end of the block
             to_write = tuple(self._encode_symbol(new_orig_symbol)) if new_orig_symbol is not None else (None,) * B
             to_move = orig_delta * B
 
