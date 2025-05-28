@@ -263,7 +263,7 @@ class UniversalMachineWrapper:
     def decode(tapes: list[list[Alphabet]]) -> list[Bits]:
         output = tapes[2].copy()
         output.pop(0)  # remove '>'
-        if len(output) > 0 and output[-1] == '_':
-            # only one trailing UTM empty symbol may occur
+        while len(output) > 0 and output[-1] == '_':
+            # remove trailing UTM empty symbols
             output.pop()
         return [int(x) for x in output]

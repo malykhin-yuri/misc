@@ -174,6 +174,28 @@ def test_universal_add():
     assert result == x + y
 
 
+def test_universal_onetape():
+    # classical one-tape UTM on binary TM
+    print('utm one-tape:')
+    utm = universal.UniversalMachineWrapper()
+    utm_emulator = multitape.MultitapeEmulator(utm.machine)
+    print('  rules:', len(utm_emulator.machine.rules))
+    print('  states:', len(set(k[0] for k in utm_emulator.machine.rules.keys())))
+
+    machine = examples.get_copy1_machine()
+    N = 3
+    input = [1] * N
+
+    utm_tapes = utm.encode(machine, input)
+    utm_one_input = utm_emulator.encode_tapes(utm_tapes)
+    utm_one_output = utm_emulator.machine.run(utm_one_input)
+    utm_output = utm_emulator.decode_tape(utm_one_output)
+    output = utm.decode(utm_output)
+
+    expected = [1] * N + [0] + [1] * N
+    assert output == expected
+
+
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.DEBUG)
     test_repeat()
@@ -187,4 +209,5 @@ if __name__ == "__main__":
     test_universal()
     test_universal_on_binarized()
     test_universal_add()
+    test_universal_onetape()
     print('ok!')
