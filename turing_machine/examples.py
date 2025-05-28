@@ -7,19 +7,47 @@ import multitape
 from patches import flatten_rules, patch_rules
 
 
-def get_simple_machine():
-    INIT = 'INIT'
-    WORK = 'WORK'
+def get_repeat_machine():
+    # This is the first example machine given by Alan Turing in his 1936 paper
+    #   "On Computable Numbers, with an Application to
+    #    the Entscheidungsproblem".
+    # It simply writes the endless sequence 0 1 0 1 0 1...
+    # From https://turingmachine.io
     rules = {
-        INIT: {
-            '_': (WORK, 'a', +1),
-        },
-        WORK: {
-            'a': (WORK, 'b', +1),
-            '_': (WORK, 'a', -1),
-        },
+        ('b', '_'): ('c', '0', +1),
+        ('c', '_'): ('e', None, +1),
+        ('e', '_'): ('f', '1', +1),
+        ('f', '_'): ('b', None, +1),
     }
-    return TuringMachine(rules=flatten_rules(rules), init_state=INIT, empty_symbol='_')
+    return TuringMachine(rules=rules, init_state='b', empty_symbol='_')
+
+
+def get_increment_machine():
+    rules = {
+        ('right', '1'): ('right', None, +1),
+        ('right', '0'): ('right', None, +1),
+        ('right', '_'): ('carry', None, -1),
+        ('carry', '1'): ('carry', '0', -1),
+        ('carry', '0'): ('done', '1', -1),
+    }
+    return TuringMachine(rules=rules, init_state='right', empty_symbol='_')
+
+
+def get_copy1_machine():
+    # binary machine, see turingmachine.io
+    rules = {
+        ('each', 0): ('halt', None, +1),
+        ('each', 1): ('sep', 0, +1),
+        ('sep', 0): ('add', None, +1),
+        ('sep', 1): ('sep', None, +1),
+        ('add', 0): ('sepL', 1, -1),
+        ('add', 1): ('add', None, +1),
+        ('sepL', 0): ('next', None, -1),
+        ('sepL', 1): ('sepL', None, -1),
+        ('next', 0): ('each', 1, +1),
+        ('next', 1): ('next', None, -1),
+    }
+    return TuringMachine(rules=rules, init_state='each', empty_symbol=0)
 
 
 def get_add_machine():

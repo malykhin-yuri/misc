@@ -1,5 +1,5 @@
 class PrettyTape:
-    def __init__(self, tape, head):
+    def __init__(self, tape, head=0):
         self.tape = tape
         self.head = head
     def __repr__(self):

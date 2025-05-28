@@ -1,5 +1,6 @@
 import itertools
 from collections.abc import Sequence
+import logging
 from typing import Literal, Any
 from enum import Enum
 
@@ -12,6 +13,8 @@ class BinStateGroup(Enum):
     READ_ANY = 21
     WRITE = 30
     MOVE = 40
+    def __repr__(self):
+        return self._name_
 
 type DeltaType = Literal[-1, 0, 1]
 type Bit = Literal[0, 1]
@@ -41,8 +44,12 @@ class BinEncoder[ST, SYM]:
         self.alphabet = alphabet
 
         self.symbol_index = {symbol: index for index, symbol in enumerate(self.alphabet)}
+
         self.block_size = (len(self.alphabet) - 1).bit_length()
         self.formatter = '{0:0' + str(self.block_size) + 'b}'
+
+        for index, symbol in enumerate(self.alphabet):
+            logging.debug('symbol[%d]: %s => %s', index, symbol, self.formatter.format(index))
 
         self.orig_machine = machine
 

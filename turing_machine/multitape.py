@@ -138,8 +138,11 @@ class MultitapeTuringMachine[ST, SYM]:
                 logging.debug('halt: key for state not found')
                 self.halt = True
                 return
+            else:
+                logging.debug('apply fallback rule')
 
         new_state, new_symbols, deltas = self.rules[key]
+        logging.debug('rule -> %s | %s | %s', new_state, new_symbols, deltas)
         for head, tape, new_symbol in zip(self.heads, self.tapes, new_symbols):
             if new_symbol is not None:
                 tape[head] = new_symbol

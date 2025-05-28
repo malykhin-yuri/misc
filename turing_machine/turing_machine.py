@@ -83,6 +83,8 @@ class TuringMachine[ST: Hashable, SYM: Hashable]:
                 logging.debug('halt: key for state not found')
                 self.halt = True
                 return
+            else:
+                logging.debug('apply fallback rule')
 
         new_state, new_symbol, delta = self.rules[key]
         logging.debug('rule -> %s | %s | %d', new_state, new_symbol, delta)
