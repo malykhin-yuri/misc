@@ -5,7 +5,6 @@ from typing import Any
 
 from turing_machine import TuringMachine
 import multitape
-from patches import flatten_rules, patch_rules
 
 
 def get_repeat_machine():

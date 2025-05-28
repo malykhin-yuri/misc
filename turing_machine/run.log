@@ -1,0 +1,31 @@
+add machine:
+  rules: 34
+  states: 11
+  add 300 + 500 steps: 239
+binarized add machine:
+  block size: 3
+  rules: 475
+  states: 238
+  most common state groups: [(READ, 167), (WRITE, 164), (MOVE, 90), (READ_ANY, 30), (REGULAR, 24)]
+  add 300 + 500 steps: 3090
+palindrome machine (multitape emulator)
+  rules: 38
+  states: 4
+  emulator rules: 15448
+  emulator states: 2090
+[(READ, 7581), (WRITE, 3528), (MOVE_DO, 2420), (MOVE_INIT, 1650), (READ_ANY, 147)]
+utm:
+  rules: 388
+  states: 19
+  copy1 steps: 11478
+utm add:
+  3 + 5 steps: 5068468
+utm one-tape:
+  rules: 25161
+  states: 5196
+  copy1 steps: 1011328
+ok!
+
+real	0m30,186s
+user	0m30,145s
+sys	0m0,025s

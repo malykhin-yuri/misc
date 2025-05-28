@@ -7,6 +7,6 @@ Here I collected some programs about them:
 * binarize.py
     convert machine with any finite alphabet to {0,1}-alphabet
 * universal.py
-    Universal TM (work in progress)
+    Universal TM
 * tests.py
-    some tests
+    various tests, see [log](run.log)

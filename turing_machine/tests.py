@@ -6,7 +6,6 @@ import string
 
 from turing_machine import TuringMachine
 import multitape
-from patches import flatten_rules, patch_rules
 import examples
 from binarize import BinEncoder
 import universal
