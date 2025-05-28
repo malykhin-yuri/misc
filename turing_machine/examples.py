@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
 
 from turing_machine import TuringMachine
@@ -50,73 +51,109 @@ def get_copy1_machine():
     return TuringMachine(rules=rules, init_state='each', empty_symbol=0)
 
 
-def get_add_machine():
-    type State = str
-    rules = defaultdict(dict)
-    INIT = ('LEFT', 0)  # 0 = carry bit
-    for carry in [0, 1]:
-        # move head left to 0
-        move_left: State = ('LEFT', carry)
-        read_start: State = ('READ', carry, None, None)
-        rules[move_left] = {
-            '#': [read_start, '#', 0],
-            None: [move_left, None, -1],
+class AddMachineWrapper:
+    # fast bin addition from turingmachine.io
+
+    def __init__(self):
+        self.machine = self._get_machine()
+
+    @classmethod
+    def encode(cls, x: int, y: int) -> list[str]:
+        # we ensure x >= y to not get out of tape
+        if x < y:
+            return cls.encode(y, x)
+        return ['_', '_'] + list(bin(x)[2:]) + ['+'] + list(bin(y)[2:])
+
+    class States(Enum):
+        INIT = 1
+        RIGHT = 2
+        READ = 3
+        HAVE0 = 4
+        HAVE1 = 5
+        REWRITE = 6
+        ADD0 = 7
+        ADD1 = 8
+        BACK0 = 9
+        BACK1 = 10
+        CARRY = 11
+        DONE = 12
+        def __repr__(self):
+            return self._name_
+
+    def _get_machine(self):
+        S = self.States
+
+        rules = {
+            (S.INIT, '0'): (S.RIGHT, None, 0),
+            (S.INIT, '1'): (S.RIGHT, None, 0),
+            (S.INIT, None): (S.INIT, None, +1),
+
+            # Start at the second number's rightmost digit.
+            (S.RIGHT, '_'): (S.READ, None, -1),
+            (S.RIGHT, None): (S.RIGHT, None, +1),
+
+            # Add each digit from right to left:
+
+            # read the current digit of the second number,
+            (S.READ, '0'): (S.HAVE0, 'c', -1),
+            (S.READ, '1'): (S.HAVE1, 'c', -1),
+            (S.READ, '+'): (S.REWRITE, '_', -1),
+
+            # and add it to the next place of the first number,
+            # marking the place (using O or I) as already added.
+            (S.HAVE0, '+'): (S.ADD0, None, -1),
+            (S.HAVE0, None): (S.HAVE0, None, -1),
+            (S.HAVE1, '+'): (S.ADD1, None, -1),
+            (S.HAVE1, None): (S.HAVE1, None, -1),
+
+            (S.ADD0, '0'): (S.BACK0, 'o', +1),
+            (S.ADD0, '_'): (S.BACK0, 'o', +1),
+            (S.ADD0, '1'): (S.BACK0, 'i', +1),
+            (S.ADD0, 'o'): (S.ADD0, None, -1),
+            (S.ADD0, 'i'): (S.ADD0, None, -1),
+
+            (S.ADD1, '0'): (S.BACK1, 'i', +1),
+            (S.ADD1, '_'): (S.BACK1, 'i', +1),
+            (S.ADD1, '1'): (S.CARRY, 'o', -1),
+            (S.ADD1, 'o'): (S.ADD1, None, -1),
+            (S.ADD1, 'i'): (S.ADD1, None, -1),
+
+            (S.CARRY, '0'): (S.BACK1, '1', +1),
+            (S.CARRY, '_'): (S.BACK1, '1', +1),
+            (S.CARRY, '1'): (S.CARRY, '0', -1),
+
+            # Then, restore the current digit, and repeat with the next digit.
+            (S.BACK0, 'c'): (S.READ, '0', -1),
+            (S.BACK0, None): (S.BACK0, None, +1),
+            (S.BACK1, 'c'): (S.READ, '1', -1),
+            (S.BACK1, None): (S.BACK1, None, +1),
+
+            # Finish: rewrite place markers back to 0s and 1s.
+            (S.REWRITE, 'o'): (S.REWRITE, '0', -1),
+            (S.REWRITE, 'i'): (S.REWRITE, '1', -1),
+            (S.REWRITE, '0'): (S.REWRITE, None, -1),
+            (S.REWRITE, '1'): (S.REWRITE, None, -1),
+            (S.REWRITE, '_'): (S.DONE, None, 0),
         }
 
-        # read last digits, store them in state
-        rules[read_start] = {
-            frozenset({'#', '_'}): +1,
-            '0': [('READ', carry, '0', None), '_', +1],
-            '1': [('READ', carry, '1', None), '_', +1],
-            '+': [('READ2', carry, '.', None), None, +1],  # first number is exhausted
-        }
-        for bit in ['0', '1', '.']:
-            state = ('READ', carry, bit, None)
-            rules[state] = {
-                frozenset({'0', '1', '_'}): +1,
-                '+': [('READ2', carry, bit, None), '+', +1],
-            }
+        return TuringMachine(rules=rules, init_state=S.INIT, empty_symbol='_')
 
-        for bit in ['0', '1', '.']:
-            state = ('READ2', carry, bit, None)
-            rules[state] = {
-                '_': +1,
-                '0': [('READ2', carry, bit, '0'), '_', +1],
-                '1': [('READ2', carry, bit, '1'), '_', +1],
-                '=': [('WRITE', carry, bit, '.'), None, +1],  # second number is exhausted
-            }
+    @staticmethod
+    def decode(tape):
+        # this is some cheating - cleanup should be made by TM itself
+        # cleanup tape: _ sum _ y _
+        while tape[-1] == '_':
+            tape.pop()
+        # remove y from tape
+        while tape[-1] != '_':
+            tape.pop()
 
-        # write
-        for bit1 in ['0', '1', '.']:
-            for bit2 in ['0', '1', '.']:
-                state = ('READ2', carry, bit1, bit2)
-                wrstate = ('WRITE', carry, bit1, bit2)
-                rules[state] = {
-                    '0': +1,
-                    '1': +1,
-                    '=': [wrstate, None, +1],
-                }
-                bit1_value = 1 if bit1 == '1' else 0
-                bit2_value = 1 if bit2 == '1' else 0
-                bitsum = bit1_value + bit2_value + carry
-                if bitsum >= 2:
-                    wr_bit = bitsum - 2
-                    new_carry = 1
-                else:
-                    wr_bit = bitsum
-                    new_carry = 0
+        tape.pop()
 
-                rules[wrstate] = {
-                    '0': +1,
-                    '1': +1,
-                }
-                if bit1 == '.' and bit2 == '.':
-                    rules[wrstate]['_'] = ['STOP', str(wr_bit), 0]
-                else:
-                    rules[wrstate]['_'] = [('LEFT', new_carry), str(wr_bit), 0]
+        while tape[0] == '_':
+            tape.pop(0)
 
-    final_rules = patch_rules(flatten_rules(rules))
-    return TuringMachine(rules=final_rules, init_state=INIT, empty_symbol='_')
+        return int(''.join(tape), base=2)
 
 
 def get_multitape_palyndrome_machine(base_alphabet: Sequence[str], start_symbol, empty_symbol='_'):

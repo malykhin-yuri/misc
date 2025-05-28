@@ -36,33 +36,18 @@ def test_copy1():
     assert output == expected
 
 
-# TODO some wrapper for TuringMachine with prepare/parse tape methods?
-
-def add_prepare_tape(x, y):
-    return ['#'] + list(reversed(bin(x)[2:])) + ['+'] + list(reversed(bin(y)[2:])) + ['=']
-
-
-def add_parse_tape(tape):
-    bits = ''.join(reversed([x for x in tape if x in '01']))
-    return int(bits, base=2)
-
-
 def test_add():
-    machine = examples.get_add_machine()
+    wrapper = examples.AddMachineWrapper()
+    machine = wrapper.machine
     print('add machine:')
     print('  rules:', len(machine.rules))
-
-    states = set()
-    for (state, _), _ in machine.rules.items():
-        states.add(state)
-    print('  states count:', len(states))
     print('  states:', len(set(k[0] for k in machine.rules.keys())))
 
     for x in range(30):
         for y in range(30):
-            output = machine.run(tape=add_prepare_tape(x, y))
-            result = add_parse_tape(output)
-            assert(result == x + y)
+            output = machine.run(tape=wrapper.encode(x, y))
+            result = wrapper.decode(output)
+            assert result == x + y
 
 
 def test_bin_inc():
@@ -77,7 +62,9 @@ def test_bin_inc():
 
 
 def test_bin_add():
-    encoder = BinEncoder(examples.get_add_machine())
+    wrapper = examples.AddMachineWrapper()
+    machine = wrapper.machine
+    encoder = BinEncoder(machine)
     bin_machine = encoder.encode_machine()
     print('binarized add machine:')
     print('  block size:', encoder.block_size)
@@ -91,12 +78,12 @@ def test_bin_add():
 
     for x in range(15):
         for y in range(15):
-            tape = add_prepare_tape(x, y)
+            tape = wrapper.encode(x, y)
             bin_tape = encoder.encode_input(tape)
             bin_output = bin_machine.run(tape=bin_tape)
             output = encoder.decode_output(bin_output)
-            result = add_parse_tape(output)
-            assert(result == x + y)
+            result = wrapper.decode(output)
+            assert result == x + y
 
 
 def test_multitape():
@@ -171,19 +158,18 @@ def test_universal_add():
     # addition using multitape UTM
     utm = universal.UniversalMachineWrapper()
 
-    machine = examples.get_add_machine()
+    wrapper = examples.AddMachineWrapper()
+    machine = wrapper.machine
     encoder = BinEncoder(machine)
     bin_machine = encoder.encode_machine()
 
-    x, y = 2, 2
-    tape = add_prepare_tape(x, y)
+    x, y = 3, 5
+    tape = wrapper.encode(x, y)
     bin_tape = encoder.encode_input(tape)
-
     utm_output = utm.machine.run(tapes=utm.encode(bin_machine, bin_tape))
-
     bin_output = utm.decode(utm_output)
     output = encoder.decode_output(bin_output)
-    result = add_parse_tape(output)
+    result = wrapper.decode(output)
 
     assert result == x + y
 
