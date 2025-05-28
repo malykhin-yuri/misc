@@ -123,6 +123,7 @@ class MultitapeTuringMachine[ST, SYM]:
                 break
             self._next()
 
+        self.steps = step
         return self.tapes
 
     def _next(self) -> None:

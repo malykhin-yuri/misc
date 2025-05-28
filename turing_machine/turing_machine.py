@@ -68,6 +68,7 @@ class TuringMachine[ST: Hashable, SYM: Hashable]:
             logging.debug('step: %d', step)
             self._next()
 
+        self.steps = step
         # maybe cleanup trailing empty symbols
         return self.tape
 

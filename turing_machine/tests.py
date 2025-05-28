@@ -49,6 +49,9 @@ def test_add():
             result = wrapper.decode(output)
             assert result == x + y
 
+    machine.run(tape=wrapper.encode(300, 500))
+    print('  add 300 + 500 steps:', machine.steps)
+
 
 def test_bin_inc():
     encoder = BinEncoder(examples.get_increment_machine())
@@ -84,6 +87,9 @@ def test_bin_add():
             output = encoder.decode_output(bin_output)
             result = wrapper.decode(output)
             assert result == x + y
+
+    bin_machine.run(tape=encoder.encode_input(wrapper.encode(300, 500)))
+    print('  add 300 + 500 steps:', bin_machine.steps)
 
 
 def test_multitape():
@@ -124,14 +130,17 @@ def test_multitape_emulator():
 
 def test_universal():
     # basic test: multitape UTM on binary TM
+    print('utm:')
     machine = examples.get_copy1_machine()
     N = 5
     input = [1] * N
     utm = universal.UniversalMachineWrapper()
-    print('utm rules:', len(utm.machine.rules))
+    print('  rules:', len(utm.machine.rules))
+    print('  states:', len(set(k[0] for k in utm.machine.rules.keys())))
     utm_output = utm.machine.run(tapes=utm.encode(machine, input))
     output = utm.decode(utm_output)
     expected = [1] * N + [0] + [1] * N
+    print('  copy1 steps:', utm.machine.steps)
     assert output == expected
 
 
@@ -156,6 +165,7 @@ def test_universal_on_binarized():
 
 def test_universal_add():
     # addition using multitape UTM
+    print('utm add:')
     utm = universal.UniversalMachineWrapper()
 
     wrapper = examples.AddMachineWrapper()
@@ -170,6 +180,7 @@ def test_universal_add():
     bin_output = utm.decode(utm_output)
     output = encoder.decode_output(bin_output)
     result = wrapper.decode(output)
+    print('  3 + 5 steps:', utm.machine.steps)
 
     assert result == x + y
 
@@ -191,6 +202,7 @@ def test_universal_onetape():
     utm_one_output = utm_emulator.machine.run(utm_one_input)
     utm_output = utm_emulator.decode_tape(utm_one_output)
     output = utm.decode(utm_output)
+    print('  copy1 steps:', utm_emulator.machine.steps)
 
     expected = [1] * N + [0] + [1] * N
     assert output == expected
