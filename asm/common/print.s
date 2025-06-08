@@ -1,39 +1,37 @@
 .section .data
 
-/*
-WRITE_SYSCALL: .byte 1
-STDOUT_FD: .byte 1
-*/
+WRITE_SYSCALL:
+    .quad 1
+STDOUT_FD:
+    .quad 1
 
 .section .text
 
-.global print_array
+.global print_char_array
 
-print_array:
-/* print array of bytes to stdout
-    call convention:
- * arg 1: mem first location (%rax)
- * arg 2: mem after last location (%rbx)
- * clobbers: ...
+print_char_array:
+/* print array of chars to stdout
+ * %rdx: mem start location
+ * %rcx: counter
+ * clobbers them + syscall clobbering :(
  */
 
-    /* syscall clobbers rcx, so save it */
-    mov %rcx, %r15
+    mov %rdx, %r14 /* write_byte clobbers rdx */
+    mov %rcx, %r15 /* syscall clobbers rcx, so save it */
+loop:
+    mov %r14, %rdx
     call write_byte
-
-    mov %rbx, %rax
-    call write_byte
-
-    mov %r15, %rax
-    call write_byte
-
+    dec %r15
+    inc %r14
+    cmp $1, %r15
+    jge loop
     ret
 
 write_byte:
-/* byte <- %rax */
-    mov %rax, %rsi  /* message */
-    mov $1, %rax    /* syscall no */
-    mov $1, %rdi    /* fd */
+/* byte <- %rdx */
+    mov WRITE_SYSCALL, %rax    /* syscall no */
+    mov STDOUT_FD, %rdi    /* fd */
+    mov %rdx, %rsi  /* message */
     mov $1, %rdx    /* len */
     syscall
     ret

@@ -7,6 +7,9 @@ EXIT_STATUS:
 
 CHAR:
     .byte 89 /* "Y" */
+    .byte 117 /* "u" */
+    .byte 114 /* "r" */
+    .byte 97 /* "a" */
     .byte 33 /* "!" */
     .byte 10 /* "\n" */
 
@@ -16,19 +19,11 @@ CHAR:
 .global _start
 
 _start:
-    mov $CHAR, %rax
-    mov $CHAR, %rbx
-    mov $CHAR, %rcx
-    inc %rbx
-    inc %rcx
-    inc %rcx
-    call print_array
+    mov $CHAR, %rdx
+    mov $6, %rcx
+    call print_char_array
 
 /* exit syscall; arg = exit status */
-    /*
-    mov $EXIT_SYSCALL, %rax
-    mov $EXIT_STATUS, %rdi
-    */
     mov EXIT_SYSCALL, %rax
-    mov $0, %rdi
+    mov EXIT_STATUS, %rdi
     syscall
