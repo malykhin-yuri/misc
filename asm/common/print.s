@@ -1,9 +1,7 @@
 .section .rodata
 
-WRITE_SYSCALL:
-    .quad 1
-STDOUT_FD:
-    .quad 1
+.equ SYS_WRITE, 1
+.equ STDOUT_FD, 1
 SEPARATOR:
     .ascii " "
 NEWLINE:
@@ -58,24 +56,24 @@ print_byte:
     ret
 
 print_digit:
-    mov WRITE_SYSCALL, %rax    /* syscall no */
-    mov STDOUT_FD, %rdi    /* fd */
+    mov $SYS_WRITE, %rax    /* syscall no */
+    mov $STDOUT_FD, %rdi    /* fd */
     mov $digit_buffer, %rsi  /* message */
     mov $1, %rdx    /* len */
     syscall
     ret
 
 print_sep:
-    mov WRITE_SYSCALL, %rax    /* syscall no */
-    mov STDOUT_FD, %rdi    /* fd */
+    mov $SYS_WRITE, %rax    /* syscall no */
+    mov $STDOUT_FD, %rdi    /* fd */
     mov $SEPARATOR, %rsi  /* message */
     mov $1, %rdx    /* len */
     syscall
     ret
 
 print_end:
-    mov WRITE_SYSCALL, %rax    /* syscall no */
-    mov STDOUT_FD, %rdi    /* fd */
+    mov $SYS_WRITE, %rax    /* syscall no */
+    mov $STDOUT_FD, %rdi    /* fd */
     mov $NEWLINE, %rsi  /* message */
     mov $1, %rdx    /* len */
     syscall

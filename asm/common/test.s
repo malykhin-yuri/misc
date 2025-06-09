@@ -1,11 +1,7 @@
-.section .rodata
-
-EXIT_SYSCALL:
-    .quad 60
-EXIT_STATUS:
-    .quad 0
-
 .section .data
+
+.equ SYS_EXIT, 60
+.equ EXIT_STATUS, 0
 
 ARR:
     .byte 17
@@ -20,6 +16,6 @@ _start:
     mov $2, %rcx
     call print_bytes_array
 
-    mov EXIT_SYSCALL, %rax
-    mov EXIT_STATUS, %rdi
+    mov $SYS_EXIT, %rax
+    mov $EXIT_STATUS, %rdi
     syscall

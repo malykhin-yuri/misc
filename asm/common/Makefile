@@ -5,7 +5,7 @@ test.o:
 	as -g test.s -o test.o
 
 test: test.o print.o
-	ld -g test.o print.o -o test.bin
+	ld -g test.o print.o -o test
 
 all: test
 
