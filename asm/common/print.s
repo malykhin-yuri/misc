@@ -1,37 +1,82 @@
-.section .data
+.section .rodata
 
 WRITE_SYSCALL:
     .quad 1
 STDOUT_FD:
     .quad 1
+SEPARATOR:
+    .ascii " "
+NEWLINE:
+    .ascii "\n"
+
+.section .data
+
+byte_buffer:
+    .byte 0
+digit_buffer:
+    .byte 0
 
 .section .text
 
-.global print_char_array
+.global print_bytes_array
 
-print_char_array:
-/* print array of chars to stdout
+print_bytes_array:
+/* print array of bytes to stdout as digits
  * %rdx: mem start location
  * %rcx: counter
- * clobbers them + syscall clobbering :(
+ * clobbers a lot of registers :(
  */
-
-    mov %rdx, %r14 /* write_byte clobbers rdx */
-    mov %rcx, %r15 /* syscall clobbers rcx, so save it */
+    mov %rdx, %r14 /* print_digit clobbers rdx */
+    mov %rcx, %r15 /* syscall clobbers rcx */
 loop:
-    mov %r14, %rdx
-    call write_byte
+    mov (%r14), %r13
+    mov %r13, byte_buffer
+    call print_byte
+    call print_sep
     dec %r15
     inc %r14
     cmp $1, %r15
     jge loop
+
+    call print_end
     ret
 
-write_byte:
-/* byte <- %rdx */
+print_byte:
+/* byte <- byte_buffer */
+    xor %rax, %rax
+    mov byte_buffer, %al
+    mov $10, %bl
+    div %bl /* quotient -> %al; remainder -> %ah */
+    mov %al, byte_buffer
+    add $48, %ah /* ascii code of symbol before '1' */
+    mov %ah, digit_buffer
+    call print_digit
+
+    mov byte_buffer, %al
+    cmp $1, %al
+    jge print_byte
+    ret
+
+print_digit:
     mov WRITE_SYSCALL, %rax    /* syscall no */
     mov STDOUT_FD, %rdi    /* fd */
-    mov %rdx, %rsi  /* message */
+    mov $digit_buffer, %rsi  /* message */
+    mov $1, %rdx    /* len */
+    syscall
+    ret
+
+print_sep:
+    mov WRITE_SYSCALL, %rax    /* syscall no */
+    mov STDOUT_FD, %rdi    /* fd */
+    mov $SEPARATOR, %rsi  /* message */
+    mov $1, %rdx    /* len */
+    syscall
+    ret
+
+print_end:
+    mov WRITE_SYSCALL, %rax    /* syscall no */
+    mov STDOUT_FD, %rdi    /* fd */
+    mov $NEWLINE, %rsi  /* message */
     mov $1, %rdx    /* len */
     syscall
     ret
