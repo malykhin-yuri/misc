@@ -14,6 +14,11 @@ Some links on low-level programming
 
 * glibc: https://sourceware.org/glibc/
 
+# Microcontrollers
+
+* https://en.wikipedia.org/wiki/Microcontroller
+* https://en.wikipedia.org/wiki/Firmware
+
 # Examples
 
 ## Memory management
