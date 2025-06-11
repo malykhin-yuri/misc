@@ -49,7 +49,6 @@ main_read_loop:
     movq $BUFFER_SIZE, %rdx
     syscall
 
-/* TODO: do not assume space before eof */
     movq %rax, end_index
     cmpq $0, %rax
     je finish
@@ -67,7 +66,7 @@ process_char_loop:
     cmpq $ASCII_SPACE, %rax
     je add_number
     cmpq $ASCII_NEWLINE, %rax
-    je finish
+    je add_number
 
     subq $ASCII_ZERO, %rax
     movq curr_num, %rbx
@@ -78,13 +77,18 @@ process_char_loop:
     jmp process_char_loop
 
 add_number:
+    call func_add_number
+    jmp process_char_loop
+
+func_add_number:
     movq curr_sum, %rax
     addq curr_num, %rax
     movq %rax, curr_sum
     movq $0, curr_num
-    jmp process_char_loop
+    ret
 
 finish:
+    call func_add_number
 /*
     output &curr_sum and exit
 
