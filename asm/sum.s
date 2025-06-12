@@ -16,17 +16,6 @@
 
 .section .data
 
-curr_index:
-    .quad 0
-end_index:
-    .quad 0
-curr_num: /* curr number being read */
-    .quad 0
-curr_sum:
-    .quad 0
-output_index:
-    .byte 0
-
 .section .bss
 
 .equ BUFFER_SIZE, 1024
@@ -39,29 +28,34 @@ output_index:
 .global _start
 
 _start:
+/* registers:
+ * %rbx - current number (callee-preserved in syscalls and C ABI)
+ * %rdi - current read index
+ * %rsi - end of read index
+ * %r12 - current sum
+ */
+    movq $0, %rbx
+    movq $0, %r12
 
 main_read_loop:
-    movq $0, curr_index
-
     movq $SYS_READ, %rax
     movq $STDIN, %rdi
     movq $INPUT_BUFFER, %rsi
     movq $BUFFER_SIZE, %rdx
     syscall
 
-    movq %rax, end_index
-    cmpq $0, %rax
+    movq %rax, %rsi /* read count */
+    cmpq $0, %rsi
     je finish
 
-process_char_loop:
-    movq curr_index, %rdi
+    movq $0, %rdi
 
-    cmpq %rdi, end_index
+process_char_loop:
+    cmpq %rdi, %rsi
     je main_read_loop
 
     movzx INPUT_BUFFER(,%rdi,1), %rax
     incq %rdi
-    movq %rdi, curr_index
 
     cmpq $ASCII_SPACE, %rax
     je add_number
@@ -69,10 +63,8 @@ process_char_loop:
     je add_number
 
     subq $ASCII_ZERO, %rax
-    movq curr_num, %rbx
     imulq $10, %rbx
     addq %rax, %rbx
-    movq %rbx, curr_num
     
     jmp process_char_loop
 
@@ -81,16 +73,14 @@ add_number:
     jmp process_char_loop
 
 func_add_number:
-    movq curr_sum, %rax
-    addq curr_num, %rax
-    movq %rax, curr_sum
-    movq $0, curr_num
+    addq %rbx, %r12
+    movq $0, %rbx
     ret
 
 finish:
     call func_add_number
 /*
-    output &curr_sum and exit
+    output current sum and exit
 
     find digits of sum number:
     %rdi - addr of output start
@@ -105,11 +95,11 @@ finish:
 
 store_digits_loop:
     movq $0, %rdx
-    movq curr_sum, %rax
+    movq %r12, %rax
     movq $10, %rcx
     divq %rcx /* quotient -> %rax, remainder -> %rdx */ 
 
-    movq %rax, curr_sum
+    movq %rax, %r12
     decq %rdi
     addq $ASCII_ZERO, %rdx
     movb %dl, OUTPUT_BUFFER(,%rdi,1)
