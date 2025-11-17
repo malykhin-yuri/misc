@@ -55,6 +55,7 @@ class Gate:
         return self.apply(state)
 
 
+# circut = list of gates; they are applied left-to-right
 class Circuit:
     def __init__(self, gates):
         self.gates = gates
@@ -88,6 +89,11 @@ def gate_H(k):
 
 def gate_phase(k):
     U = np.array([[1, 0], [0, 1j]])
+    return Gate(U, [k])
+
+
+def gate_T(k):
+    U = np.array([[1, 0], [0, (1 + 1j) * 2**(-0.5)]])
     return Gate(U, [k])
 
 
@@ -125,3 +131,7 @@ def gate_controlled(cqbits, gate):
 
 def gate_cnot(k, l):
     return gate_controlled([k], gate_X(l))
+
+
+def gate_toffoli(k, l, m):
+    return gate_controlled([k, l], gate_X(m))

@@ -91,7 +91,7 @@ def test_quant_controlled():
     ):
         raise ValueError("expected controlled-Z = Z-controlled")
 
-
+    # Nielsen-Chuang, section 4.3
     cnot = quant.gate_cnot(0, 1)
     V = np.array([[0.6j, 0.8j], [0.8, -0.6]]);
     U = V @ V
@@ -111,8 +111,65 @@ def test_quant_controlled():
     print("ok")
 
 
+def test_quant_toffoli():
+    print("test_quant_toffoli")
+
+    # Nielsen-Chuang, section 4.3
+    T = quant.gate_T(0).U
+    Tc = T.conj().T
+    toffoli = quant.gate_toffoli(0, 1, 2)
+    circuit = quant.Circuit([
+        quant.gate_H(2),
+        quant.gate_cnot(1, 2),
+        quant.Gate(Tc, [2]),
+        quant.gate_cnot(0, 2),
+        quant.gate_T(2),
+        quant.gate_cnot(1, 2),
+        quant.Gate(Tc, [2]),
+        quant.gate_cnot(0, 2),
+        quant.Gate(Tc, [1]),
+        quant.gate_T(2),
+        quant.gate_cnot(0, 1),
+        quant.gate_H(2),
+        quant.Gate(Tc, [1]),
+        quant.gate_cnot(0, 1),
+        quant.gate_T(0),
+        quant.gate_phase(1),
+    ])
+    for bits in itertools.product([0, 1], repeat=3):
+        state = quant.state_comp(bits)
+        expected_bits = bits if bits[0] == 0 or bits[1] == 0 else (bits[0], bits[1], 1 - bits[2])
+
+        if has_diff(toffoli @ state, quant.state_comp(expected_bits)):
+            raise ValueError("toffoli: violated definition")
+        if has_diff(toffoli @ state, circuit @ state):
+            raise ValueError("toffoli: violated circuit")
+
+    print("ok")
+
+
+def test_quant_fredkin():
+    print("test_quant_fredkin")
+
+    fredkin = quant.gate_controlled([0], quant.gate_swap(1, 2))
+    circuit = quant.Circuit([
+    ])
+    for bits in itertools.product([0, 1], repeat=3):
+        state = quant.state_comp(bits)
+        expected_bits = bits if bits[0] == 0 else (bits[0], bits[2], bits[1])
+
+        if has_diff(fredkin @ state, quant.state_comp(expected_bits)):
+            raise ValueError("fredkin: violated definition")
+        #if has_diff(fredkin @ state, circuit @ state):
+        #    raise ValueError("fredkin: violated circuit")
+
+    print("ok")
+
+
 if __name__ == "__main__":
     test_merge_bits_array()
     test_quant_X()
     test_quant_equations()
     test_quant_controlled()
+    test_quant_toffoli()
+    test_quant_fredkin()
