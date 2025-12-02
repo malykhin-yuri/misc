@@ -109,6 +109,7 @@ def gate_swap(k, l):
 
 
 """Контролируемый заданными кубитами гейт."""
+# TODO: более общий контроль, со значениями кубитов
 def gate_controlled(cqbits, gate):
     if set(cqbits) & set(gate.qbits):
         raise ValueError("Controlled qbit in gate qbits!")

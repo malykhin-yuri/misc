@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 
 import quant
+import fourier
 import bit_utils
 
 
@@ -10,6 +11,7 @@ def has_diff(state1, state2):
     if state1.N != state2.N:
         raise ValueError("Wrong number of qbits")
     return np.max(np.abs(state1.amp - state2.amp)) > 1e-6
+
 
 def test_merge_bits_array():
     print("test_merge_bits_array")
@@ -50,12 +52,12 @@ def test_quant_equations():
         quant.state_comp([1]),
         quant.State(1, amp=[0.6, 0.8j]),
     ]
+    X = quant.gate_X(0)
+    Y = quant.gate_Y(0)
+    Z = quant.gate_Z(0)
+    H = quant.gate_H(0)
     for state in test_states:
         istate = quant.State(1, amp=state.amp * 1j)
-        X = quant.gate_X(0)
-        Y = quant.gate_Y(0)
-        Z = quant.gate_Z(0)
-        H = quant.gate_H(0)
 
         if has_diff(quant.Circuit([X, X]) @ state, state):
             raise ValueError("expected XX=I")
@@ -67,6 +69,22 @@ def test_quant_equations():
             raise ValueError("expected ZX=iY")
         if has_diff(quant.Circuit([H, Z, H]) @ state, X @ state):
             raise ValueError("expected HZH=X")
+
+    C = quant.gate_cnot(0, 1)
+    X1 = quant.gate_X(0)
+    X2 = quant.gate_X(1)
+    Y1 = quant.gate_Y(0)
+    Y2 = quant.gate_Y(1)
+    Z1 = quant.gate_Z(0)
+    Z2 = quant.gate_Z(1)
+    for bits in itertools.product([0, 1], repeat=2):
+        state = quant.state_comp(bits)
+        if has_diff(quant.Circuit([C, X1, C]) @ state, quant.Circuit([X2, X1]) @ state):
+            raise ValueError("expected CX_1C = X_1X_2")
+        if has_diff(quant.Circuit([C, Y1, C]) @ state, quant.Circuit([X2, Y1]) @ state):
+            raise ValueError("expected CY_1C = Y_1X_2")
+        if has_diff(quant.Circuit([C, Z1, C]) @ state, quant.Circuit([Z1]) @ state):
+            raise ValueError("expected CZ_1C = Z_1")
 
     print("ok")
 
@@ -153,6 +171,9 @@ def test_quant_fredkin():
 
     fredkin = quant.gate_controlled([0], quant.gate_swap(1, 2))
     circuit = quant.Circuit([
+        quant.gate_toffoli(0, 1, 2),
+        quant.gate_toffoli(0, 2, 1),
+        quant.gate_toffoli(0, 1, 2),
     ])
     for bits in itertools.product([0, 1], repeat=3):
         state = quant.state_comp(bits)
@@ -160,16 +181,36 @@ def test_quant_fredkin():
 
         if has_diff(fredkin @ state, quant.state_comp(expected_bits)):
             raise ValueError("fredkin: violated definition")
-        #if has_diff(fredkin @ state, circuit @ state):
-        #    raise ValueError("fredkin: violated circuit")
+        if has_diff(fredkin @ state, circuit @ state):
+            raise ValueError("fredkin: violated circuit")
+
+    print("ok")
+
+
+def test_fourier():
+    print("test_fourier")
+    n = 2  # qbits count
+    F = fourier.get_fourier_circuit(n)
+
+    amp = np.random.normal(size=2**n)
+    amp = amp / np.linalg.norm(amp)
+
+    q_amp = F @ quant.State(n, amp)
+    fft_amp = np.fft.fft(amp)
+    c_amp = quant.State(n, np.conjugate(fft_amp) / np.linalg.norm(fft_amp))
+
+    if has_diff(q_amp, c_amp):
+        raise ValueError("Fourier: not equals fft")
 
     print("ok")
 
 
 if __name__ == "__main__":
+    np.random.seed(177)
     test_merge_bits_array()
     test_quant_X()
     test_quant_equations()
     test_quant_controlled()
     test_quant_toffoli()
     test_quant_fredkin()
+    test_fourier()
